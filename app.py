@@ -46,21 +46,35 @@ st.caption("AI-GOVERNED THERMAL MANAGEMENT // LPU-ACCELERATED // 2026 STABLE")
 
 # --- 3. CORE INITIALIZATION (SECURED) ---
 def get_client():
-    # Looks for 'GROQ_API_KEY' in Streamlit Secrets or Local secrets.toml
+    # Priority: Streamlit Secrets for Deployment Security
     key = st.secrets.get("GROQ_API_KEY", "")
     if not key:
-        st.error("🔑 API KEY NOT FOUND. PLEASE ADD 'GROQ_API_KEY' TO STREAMLIT SECRETS.")
+        st.error("🔑 API KEY NOT FOUND.")
         st.stop()
     return Groq(api_key=key)
 
 client = get_client()
 
+# State Management for Logs and History
 if 'packet_buffer' not in st.session_state:
     st.session_state.packet_buffer = []
 if 'history' not in st.session_state:
     st.session_state.history = pd.DataFrame(columns=['T', 'W'])
+if 'audit_log' not in st.session_state:
+    st.session_state.audit_log = []
 
-# --- 4. BOOT SEQUENCE & TELEMETRY LAYOUT ---
+# --- 4. SIDEBAR & AUDIT EXPORT ---
+with st.sidebar:
+    st.markdown("### 🛠️ SYSTEM ADMIN")
+    if st.button("GENERATE AUDIT REPORT"):
+        if st.session_state.audit_log:
+            df_log = pd.DataFrame(st.session_state.audit_log)
+            csv = df_log.to_csv(index=False).encode('utf-8')
+            st.download_button("DOWNLOAD CSV", data=csv, file_name="nexus_audit_log.csv", mime="text/csv")
+        else:
+            st.warning("NO LOG DATA COLLECTED YET.")
+
+# --- 5. BOOT SEQUENCE ---
 with st.status("ESTABLISHING LPU_LINK...", state="running") as status:
     st.write("Verifying Credentials...")
     time.sleep(0.4)
@@ -68,6 +82,7 @@ with st.status("ESTABLISHING LPU_LINK...", state="running") as status:
     time.sleep(0.4)
     status.update(label="LPU_LINK: SECURED // GOVERNOR_MODEL: LLAMA-3.3-70B", state="complete")
 
+# --- 6. LAYOUT ---
 col_gauge, col_metrics = st.columns([1, 2])
 gauge_placeholder = col_gauge.empty()
 
@@ -81,7 +96,6 @@ with col_metrics:
 
 st.divider()
 
-# --- 5. DATA VISUALIZATION LAYOUT ---
 col_graph, col_logs = st.columns([2, 1])
 
 with col_graph:
@@ -94,10 +108,10 @@ with col_logs:
     st.markdown("### 📟 RAW_STREAM")
     packet_ui = st.empty()
 
-# --- 6. EXECUTION LOOP ---
+# --- 7. EXECUTION LOOP ---
 if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
     for i in range(10000):
-        # Hardware Simulation Logic
+        # Simulation Parameters
         t = 65 + (np.sin(i/10) * 15) + np.random.normal(0, 0.5)
         w = max(0, 100 - (i * 0.12))
         load = 9200 + np.random.randint(-200, 200)
@@ -106,8 +120,7 @@ if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = t,
-            domain = {'x': [0, 1], 'y': [0, 1]},
-            title = {'text': "THERMAL_PRESSURE", 'font': {'size': 14, 'color': "#00ffa2"}},
+            title = {'text': "THERMAL_PRESSURE", 'font': {'color': "#00ffa2", 'size': 14}},
             gauge = {
                 'axis': {'range': [None, 100], 'tickcolor': "#00ffa2"},
                 'bar': {'color': "#00ffa2"},
@@ -132,33 +145,39 @@ if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
         status_text = "🟢 NOMINAL" if t < 80 else "🔴 CRITICAL"
         health_ui.metric("SYSTEM_HEALTH", status_text)
 
-        # C. AI Logic (Every 5 ticks to save API tokens)
+        # C. AI Governance & Audit Logging (Every 5 cycles)
         if i % 5 == 0:
             try:
                 res = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": f"Status: {t}C, {w}%. Respond in JSON with keys 'act' and 'msg'."}],
+                    messages=[{"role": "user", "content": f"Status: {t}C, {w}%. Respond JSON: 'act', 'msg'."}],
                     response_format={"type": "json_object"}
                 )
                 intel = json.loads(res.choices[0].message.content)
                 logic_ui.info(f"**ACTION:** {intel['act']}\n\n**LOG:** {intel['msg']}")
-            except Exception as e:
-                logic_ui.error("LPU CONNECTION INTERRUPTED")
+                
+                # Append to Audit Log
+                st.session_state.audit_log.append({
+                    "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    "temp": round(t, 2),
+                    "water_level": round(w, 2),
+                    "action_taken": intel['act'],
+                    "ai_reasoning": intel['msg']
+                })
+            except:
+                logic_ui.error("LPU_SYNC_FAILED // CHECK API KEY")
 
         # D. Update Historical Chart
         new_row = pd.DataFrame({'T': [t], 'W': [w]})
         st.session_state.history = pd.concat([st.session_state.history, new_row]).tail(40)
         
         fig_map = go.Figure()
-        fig_map.add_trace(go.Scatter(y=st.session_state.history['T'], name="HEAT", 
-                                     line=dict(color='#00ffa2', width=4), fill='tozeroy'))
-        fig_map.add_trace(go.Scatter(y=st.session_state.history['W'], name="WATER", 
-                                     line=dict(color='#0066ff', width=2, dash='dot')))
-        fig_map.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0), 
-                              paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
+        fig_map.add_trace(go.Scatter(y=st.session_state.history['T'], name="HEAT", line=dict(color='#00ffa2', width=4), fill='tozeroy'))
+        fig_map.add_trace(go.Scatter(y=st.session_state.history['W'], name="WATER", line=dict(color='#0066ff', width=2, dash='dot')))
+        fig_map.update_layout(template="plotly_dark", height=400, margin=dict(l=0,r=0,t=0,b=0), paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
         chart_ui.plotly_chart(fig_map, use_container_width=True)
 
-        # E. Update Packet Stream
+        # E. Update Raw Stream
         ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
         st.session_state.packet_buffer.insert(0, f"[{ts}] RX >> T:{t:.1f} | W:{w:.1f}%")
         packet_ui.code("\n".join(st.session_state.packet_buffer[:7]), language="bash")
