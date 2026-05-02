@@ -44,10 +44,13 @@ st.markdown("""
 st.markdown('<div class="main-title">NEXUS-FLOW // MASTER_OS v4.5</div>', unsafe_allow_html=True)
 st.caption("AI-GOVERNED THERMAL MANAGEMENT // LPU-ACCELERATED // 2026 STABLE")
 
-# --- 3. CORE INITIALIZATION ---
+# --- 3. CORE INITIALIZATION (SECURED) ---
 def get_client():
-    # Priority: Secrets -> Fallback (Replace 'YOUR_KEY_HERE' for local testing)
-    key = st.secrets.get("GROQ_API_KEY", "YOUR_KEY_HERE")
+    # Looks for 'GROQ_API_KEY' in Streamlit Secrets or Local secrets.toml
+    key = st.secrets.get("GROQ_API_KEY", "")
+    if not key:
+        st.error("🔑 API KEY NOT FOUND. PLEASE ADD 'GROQ_API_KEY' TO STREAMLIT SECRETS.")
+        st.stop()
     return Groq(api_key=key)
 
 client = get_client()
@@ -57,8 +60,13 @@ if 'packet_buffer' not in st.session_state:
 if 'history' not in st.session_state:
     st.session_state.history = pd.DataFrame(columns=['T', 'W'])
 
-# --- 4. TOP-LEVEL TELEMETRY LAYOUT ---
-st.status("LPU_LINK: SECURED // GOVERNOR_MODEL: LLAMA-3.3-70B", state="complete")
+# --- 4. BOOT SEQUENCE & TELEMETRY LAYOUT ---
+with st.status("ESTABLISHING LPU_LINK...", state="running") as status:
+    st.write("Verifying Credentials...")
+    time.sleep(0.4)
+    st.write("Handshaking with Llama-3.3-70B...")
+    time.sleep(0.4)
+    status.update(label="LPU_LINK: SECURED // GOVERNOR_MODEL: LLAMA-3.3-70B", state="complete")
 
 col_gauge, col_metrics = st.columns([1, 2])
 gauge_placeholder = col_gauge.empty()
@@ -88,15 +96,13 @@ with col_logs:
 
 # --- 6. EXECUTION LOOP ---
 if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
-    st.toast("Nexus-Flow Governor Handshake... OK", icon="⚡")
-    
-    for i in range(5000):
-        # 1. Telemetry Simulation
+    for i in range(10000):
+        # Hardware Simulation Logic
         t = 65 + (np.sin(i/10) * 15) + np.random.normal(0, 0.5)
         w = max(0, 100 - (i * 0.12))
         load = 9200 + np.random.randint(-200, 200)
         
-        # 2. Update Radial Gauge
+        # A. Update Radial Gauge
         fig_gauge = go.Figure(go.Indicator(
             mode = "gauge+number",
             value = t,
@@ -119,26 +125,27 @@ if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
         fig_gauge.update_layout(paper_bgcolor='rgba(0,0,0,0)', font={'color': "#00ffa2"}, height=240, margin=dict(l=20,r=20,t=40,b=20))
         gauge_placeholder.plotly_chart(fig_gauge, use_container_width=True)
 
-        # 3. Update Metrics
+        # B. Update Metrics
         thermal_ui.metric("CORE_TEMP", f"{t:.1f}°C")
         water_ui.metric("RESERVOIR", f"{w:.1f}%", delta="-0.12%")
         load_ui.metric("GRID_LOAD", f"{load} kW")
         status_text = "🟢 NOMINAL" if t < 80 else "🔴 CRITICAL"
         health_ui.metric("SYSTEM_HEALTH", status_text)
 
-        # 4. AI Logic (Every 5 ticks)
+        # C. AI Logic (Every 5 ticks to save API tokens)
         if i % 5 == 0:
             try:
                 res = client.chat.completions.create(
                     model="llama-3.3-70b-versatile",
-                    messages=[{"role": "user", "content": f"DATA: {t}C, {w}%. Respond JSON: 'act', 'msg'."}],
+                    messages=[{"role": "user", "content": f"Status: {t}C, {w}%. Respond in JSON with keys 'act' and 'msg'."}],
                     response_format={"type": "json_object"}
                 )
                 intel = json.loads(res.choices[0].message.content)
                 logic_ui.info(f"**ACTION:** {intel['act']}\n\n**LOG:** {intel['msg']}")
-            except: pass
+            except Exception as e:
+                logic_ui.error("LPU CONNECTION INTERRUPTED")
 
-        # 5. Update Historical Chart
+        # D. Update Historical Chart
         new_row = pd.DataFrame({'T': [t], 'W': [w]})
         st.session_state.history = pd.concat([st.session_state.history, new_row]).tail(40)
         
@@ -151,9 +158,9 @@ if st.toggle("ACTIVATE_NEXUS_LINK", value=True):
                               paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', showlegend=False)
         chart_ui.plotly_chart(fig_map, use_container_width=True)
 
-        # 6. Update Packet Stream
+        # E. Update Packet Stream
         ts = datetime.now().strftime("%H:%M:%S.%f")[:-4]
         st.session_state.packet_buffer.insert(0, f"[{ts}] RX >> T:{t:.1f} | W:{w:.1f}%")
         packet_ui.code("\n".join(st.session_state.packet_buffer[:7]), language="bash")
         
-        time.sleep(1.2)
+        time.sleep(1.0)
