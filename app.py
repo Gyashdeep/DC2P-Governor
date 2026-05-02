@@ -5,97 +5,93 @@ import plotly.graph_objects as go
 from groq import Groq
 import json
 import time
-import os
 from datetime import datetime
 
-# --- 1. SECURE API INITIALIZATION ---
-def initialize_groq():
-    # Priority 1: Streamlit Cloud Secrets
-    # Priority 2: Local .streamlit/secrets.toml
-    # Priority 3: System Environment Variables
-    api_key = None
-    
-    try:
-        if "GROQ_API_KEY" in st.secrets:
-            api_key = st.secrets["GROQ_API_KEY"]
-    except:
-        api_key = os.environ.get("GROQ_API_KEY")
+# --- CONFIGURATION ---
+st.set_page_config(page_title="Nexus-Flow AI", page_icon="🌊", layout="wide")
 
-    if not api_key:
-        st.error("🔑 API Key Missing! Create .streamlit/secrets.toml or set GROQ_API_KEY env var.")
-        st.stop()
-        
+# --- CUSTOM STYLING ---
+st.markdown("""
+    <style>
+    .main { background-color: #0e1117; }
+    .stMetric { background-color: #161b22; padding: 15px; border-radius: 10px; border: 1px solid #30363d; }
+    </style>
+""", unsafe_allow_html=True)
+
+# --- SECURE API CLIENT ---
+def init_client():
+    # Priority: st.secrets -> Then fallback string for local testing
+    api_key = st.secrets.get("GROQ_API_KEY", "YOUR_NEW_KEY_HERE")
     return Groq(api_key=api_key)
 
-client = initialize_groq()
+client = init_client()
 
-# --- 2. CONFIGURATION & UI ---
-st.set_page_config(page_title="Autonomous DC2P Governor", layout="wide")
-st.title("🌊 DC2P: Data-Center-to-Potable")
-st.markdown("### *Autonomous Energy-Water Nexus Controller*")
-
-# --- 3. AGENTIC REASONING ENGINE ---
-def get_governor_decision(load, temp, water):
-    """
-    Calls the Groq Model (GPT-OSS 120B) to act as a 
-    Thermodynamic Agent for Water Purification.
-    """
-    prompt = f"""
-    SYSTEM: You are the DC2P Sovereign Governor.
-    STATUS: GPU Load {load}kW | Coolant {temp}C | Water {water}%
-    
-    ACTION RULES:
-    - If Water < 20%: Strategy = 'THERMAL_BURST' (Increase load).
-    - If Temp > 75C: Strategy = 'EMERGENCY_THROTTLE'.
-    - Else: Strategy = 'STEADY_STATE'.
-    
-    TASK: Output JSON with 'strategy', 'valve_pos' (0.0-1.0), and 'logic'.
-    """
-    
+# --- AGENTIC ENGINE ---
+def get_nexus_decision(load, temp, water):
+    """Reasoning engine using Groq Llama 3.3 70B for speed."""
+    prompt = f"System: DC2P Governor. Input: {load}kW, {temp}C, {water}% water. Task: Output JSON: 'strategy', 'valve', 'logic'."
     try:
-        response = client.chat.completions.create(
-            model="openai/gpt-oss-120b",
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
             messages=[{"role": "user", "content": prompt}],
             response_format={"type": "json_object"}
         )
-        return json.loads(response.choices[0].message.content)
-    except Exception as e:
-        return {"strategy": "FAILSAFE", "valve_pos": 0.0, "logic": f"System Error: {str(e)}"}
+        return json.loads(completion.choices[0].message.content)
+    except:
+        return {"strategy": "STABLE", "valve": 0.5, "logic": "Failsafe active."}
 
-# --- 4. SIMULATION & DASHBOARD ---
+# --- DASHBOARD LAYOUT ---
+st.title("🌊 Nexus-Flow AI")
+st.caption("Autonomous Data-Center-to-Potable (DC2P) Energy Governor | v1.2.0")
+
 if 'history' not in st.session_state:
     st.session_state.history = pd.DataFrame(columns=['Time', 'Temp', 'Water'])
 
-placeholder = st.empty()
+# --- CONTROL PANEL ---
+col_m1, col_m2, col_m3 = st.columns(3)
+thermal_metric = col_m1.empty()
+water_metric = col_m2.empty()
+strategy_metric = col_m3.empty()
 
-# Simulation loop (In production, replace with real MQTT sensor calls)
-for i in range(50):
-    with placeholder.container():
-        # Simulated Hardware Telemetry
-        sim_water = max(5, 45 - (i * 1.5))
-        sim_load = 9000 + (np.random.randint(-200, 200))
-        sim_temp = 58 + (i * 0.5)
+chart_container = st.empty()
+log_container = st.empty()
+
+# --- LIVE EXECUTION LOOP ---
+# The toggle prevents the app from starting heavy tasks until you are ready
+if st.toggle("🛰️ Establish Real-Time Link", value=True):
+    step = 0
+    while True:
+        step += 1
         
-        # AI Logic
-        decision = get_governor_decision(sim_load, sim_temp, sim_water)
+        # 1. SIMULATED DATA (Replace with MQTT/Modbus calls in production)
+        now = datetime.now()
+        current_temp = 62 + np.random.uniform(-1, 4)
+        current_water = max(0, 85 - (step * 0.4))
+        current_load = 9200 + np.random.randint(-150, 150)
         
-        # UI Metrics
-        c1, c2, c3 = st.columns(3)
-        c1.metric("Thermal Energy (C)", f"{sim_temp:.1f}°C")
-        c2.metric("Reservoir Level", f"{sim_water}%", delta="-1.5%")
-        c3.metric("AI Strategy", decision['strategy'])
-        
-        # Real-time Reasoning Insight
-        st.info(f"**Agent Logic:** {decision['logic']}")
-        
-        # Visualization
-        new_entry = pd.DataFrame({'Time': [datetime.now()], 'Temp': [sim_temp], 'Water': [sim_water]})
-        st.session_state.history = pd.concat([st.session_state.history, new_entry]).tail(15)
+        # 2. AGENT REASONING (Every 4 seconds to prevent API throttling)
+        if step % 2 == 0:
+            decision = get_nexus_decision(current_load, current_temp, current_water)
+            log_container.info(f"**Nexus Logic:** {decision['logic']}")
+            strategy_val = decision['strategy']
+        else:
+            strategy_val = "CALCULATING..."
+
+        # 3. UPDATE UI COMPONENTS
+        thermal_metric.metric("Thermal Energy", f"{current_temp:.1f}°C")
+        water_metric.metric("Water Reservoir", f"{current_water:.1f}%", delta="-0.4%")
+        strategy_metric.metric("AI Strategy", strategy_val)
+
+        # 4. CHART UPDATES
+        new_data = pd.DataFrame({'Time': [now], 'Temp': [current_temp], 'Water': [current_water]})
+        st.session_state.history = pd.concat([st.session_state.history, new_data]).tail(25)
         
         fig = go.Figure()
-        fig.add_trace(go.Scatter(x=st.session_state.history['Time'], y=st.session_state.history['Temp'], name="Heat"))
-        fig.add_trace(go.Scatter(x=st.session_state.history['Time'], y=st.session_state.history['Water'], name="Water"))
-        fig.update_layout(template="plotly_dark", height=300, margin=dict(l=20, r=20, t=20, b=20))
-        st.plotly_chart(fig, use_container_width=True)
+        fig.add_trace(go.Scatter(x=st.session_state.history['Time'], y=st.session_state.history['Temp'], name="Thermal", line=dict(color='#ff4b4b')))
+        fig.add_trace(go.Scatter(x=st.session_state.history['Time'], y=st.session_state.history['Water'], name="Water", line=dict(color='#00ffaa')))
+        fig.update_layout(template="plotly_dark", height=350, margin=dict(l=0,r=0,t=0,b=0), legend=dict(orientation="h"))
         
+        chart_container.plotly_chart(fig, use_container_width=True)
+
+        # 5. PACING (Crucial to prevent 'App Over-capacity')
         time.sleep(2)
