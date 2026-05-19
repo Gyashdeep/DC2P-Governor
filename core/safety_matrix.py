@@ -19,17 +19,21 @@ class ActuationSafetyMatrix:
             sanitized["pump_pressure_psi"] = settings.MAX_PUMP_PRESSURE_PSI
             override_triggered = True
 
-        # Constraint 2: Verify Flow Rate meets Minimum Critical Thresholds
+        # Constraint 2: Verify Flow Rate meets Minimum/Maximum Critical Thresholds
         if sanitized.get("coolant_flow_lpm", 0) < settings.MIN_COOLANT_FLOW_LPM:
-            logging.warning(f"LLM requested sub-nominal flow: {sanitized['coolant_flow_lpm']} LPM. Overriding to safe baseline.")
+            logging.warning(f"LLM requested sub-nominal flow: {sanitized['coolant_flow_lpm']} LPM. Overriding to safe minimum.")
             sanitized["coolant_flow_lpm"] = settings.MIN_COOLANT_FLOW_LPM
+            override_triggered = True
+        elif sanitized.get("coolant_flow_lpm", 0) > settings.MAX_COOLANT_FLOW_LPM:
+            logging.warning(f"LLM requested excessive flow: {sanitized['coolant_flow_lpm']} LPM. Clamping to hydraulic maximum.")
+            sanitized["coolant_flow_lpm"] = settings.MAX_COOLANT_FLOW_LPM
             override_triggered = True
 
         # Constraint 3: Thermal Emergency Override Cascade
         if current_temp >= settings.MAX_ALLOWED_TEMP_C:
             logging.error(f"CRITICAL THERMAL THRESHOLD EXCEEDED: {current_temp}°C! Initiating safety dump.")
             sanitized["pump_pressure_psi"] = settings.MAX_PUMP_PRESSURE_PSI
-            sanitized["coolant_flow_lpm"] = settings.MIN_COOLANT_FLOW_LPM * 2.5
+            sanitized["coolant_flow_lpm"] = settings.MAX_COOLANT_FLOW_LPM
             sanitized["valve_actuation_pct"] = 100.0
             override_triggered = True
 
