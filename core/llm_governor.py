@@ -5,7 +5,6 @@ from groq import Groq
 from config.settings import settings
 
 class ActionSchema(BaseModel):
-    # Ge (Greater than or equal) and Le (Less than or equal) force API-level boundary compliance
     pump_pressure_psi: float = Field(
         ge=10.0, le=60.0, 
         description="Target pressure optimization value in PSI. Must be between 10.0 and 60.0."
@@ -29,6 +28,7 @@ class LlmGovernor:
         self.client = Groq(api_key=api_key)
 
     def compute_optimization_strategy(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
+        # Injecting 'json' explicitly in lowercase to pass Groq API validation rules
         prompt = f"""
         [ROLE] Liquid-Cooled GPU Cluster Governor Engine.
         [TASK] Optimize parameters based on operational metrics. Prioritize thermal safety while mitigating power drag.
@@ -38,6 +38,8 @@ class LlmGovernor:
         - pump_pressure_psi: MUST be between 10.0 and 60.0
         - coolant_flow_lpm: MUST be between 10.0 and 35.0
         - valve_actuation_pct: MUST be between 0.0 and 100.0
+
+        OUTPUT FORMAT REQUIREMENT: You must output a valid json object matching the schema.
         """
         
         try:
