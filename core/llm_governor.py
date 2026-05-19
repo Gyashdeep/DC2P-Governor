@@ -11,9 +11,11 @@ class ActionSchema(BaseModel):
     justification: str = Field(description="Engineering rationale behind the asset adjustment strategy.")
 
 class LlmGovernor:
-    """Autonomous AI governor managing optimization calculations."""
+    """Autonomous AI governor managing optimization calculations via Groq."""
     def __init__(self):
-        self.client = Groq(api_key=settings.GROQ_API_KEY)
+        # Fallback to streamlit secrets if local env variable is missing
+        api_key = settings.GROQ_API_KEY if settings.GROQ_API_KEY else import_streamlit_secrets()
+        self.client = Groq(api_key=api_key)
 
     def compute_optimization_strategy(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
         prompt = f"""
@@ -43,3 +45,7 @@ class LlmGovernor:
                 "valve_actuation_pct": 50.0,
                 "justification": f"FAILSAFE INITIATED: API Error Code {str(e)}"
             }
+
+def import_streamlit_secrets():
+    import streamlit as st
+    return st.secrets.get("GROQ_API_KEY", "")
