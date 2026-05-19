@@ -18,7 +18,7 @@ class ActionSchema(BaseModel):
         description="Electronic valve deployment percentage (0.0 - 100.0)."
     )
     justification: str = Field(
-        description="Engineering rationale behind the asset adjustment strategy."
+        description="Engineering rationale behind the asset adjustment strategy. This text field is MANDATORY."
     )
 
 class LlmGovernor:
@@ -28,25 +28,25 @@ class LlmGovernor:
         self.client = Groq(api_key=api_key)
 
     def compute_optimization_strategy(self, telemetry: Dict[str, Any]) -> Dict[str, Any]:
-        # Injecting 'json' explicitly in lowercase to pass Groq API validation rules
         prompt = f"""
         [ROLE] Liquid-Cooled GPU Cluster Governor Engine.
         [TASK] Optimize parameters based on operational metrics. Prioritize thermal safety while mitigating power drag.
         [CURRENT TELEMETRY] {json.dumps(telemetry)}
         
         CRITICAL OPERATIONAL BOUNDARIES:
-        - pump_pressure_psi: MUST be between 10.0 and 60.0
-        - coolant_flow_lpm: MUST be between 10.0 and 35.0
-        - valve_actuation_pct: MUST be between 0.0 and 100.0
+        - pump_pressure_psi: MUST be a float between 10.0 and 60.0
+        - coolant_flow_lpm: MUST be a float between 10.0 and 35.0
+        - valve_actuation_pct: MUST be a float between 0.0 and 100.0
+        - justification: MUST be a string detailing your engineering logic. Do not leave this empty.
 
-        OUTPUT FORMAT REQUIREMENT: You must output a valid json object matching the schema.
+        OUTPUT FORMAT REQUIREMENT: You must output a valid json object matching the schema. Include all 4 fields.
         """
         
         try:
             response = self.client.chat.completions.create(
                 model=settings.MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,  
+                temperature=0.1,  # Set to 0.1 to allow fluid text generation for the justification string
                 response_format={
                     "type": "json_object",
                     "schema": ActionSchema.model_json_schema()
