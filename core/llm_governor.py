@@ -5,10 +5,22 @@ from groq import Groq
 from config.settings import settings
 
 class ActionSchema(BaseModel):
-    pump_pressure_psi: float = Field(description="Target pressure optimization value.")
-    coolant_flow_lpm: float = Field(description="Target liquid coolant flow rate in Liters Per Minute.")
-    valve_actuation_pct: float = Field(description="Electronic valve deployment percentage (0-100).")
-    justification: str = Field(description="Engineering rationale behind the asset adjustment strategy.")
+    # Ge (Greater than or equal) and Le (Less than or equal) force API-level boundary compliance
+    pump_pressure_psi: float = Field(
+        ge=10.0, le=60.0, 
+        description="Target pressure optimization value in PSI. Must be between 10.0 and 60.0."
+    )
+    coolant_flow_lpm: float = Field(
+        ge=10.0, le=35.0, 
+        description="Target liquid coolant flow rate in Liters Per Minute. Must be between 10.0 and 35.0."
+    )
+    valve_actuation_pct: float = Field(
+        ge=0.0, le=100.0, 
+        description="Electronic valve deployment percentage (0.0 - 100.0)."
+    )
+    justification: str = Field(
+        description="Engineering rationale behind the asset adjustment strategy."
+    )
 
 class LlmGovernor:
     """Autonomous AI governor managing optimization calculations via Groq Cloud."""
@@ -22,22 +34,20 @@ class LlmGovernor:
         [TASK] Optimize parameters based on operational metrics. Prioritize thermal safety while mitigating power drag.
         [CURRENT TELEMETRY] {json.dumps(telemetry)}
         
-        CRITICAL: You MUST respond with a JSON object that contains exactly these keys and no others:
-        - pump_pressure_psi
-        - coolant_flow_lpm
-        - valve_actuation_pct
-        - justification
+        CRITICAL OPERATIONAL BOUNDARIES:
+        - pump_pressure_psi: MUST be between 10.0 and 60.0
+        - coolant_flow_lpm: MUST be between 10.0 and 35.0
+        - valve_actuation_pct: MUST be between 0.0 and 100.0
         """
         
         try:
-            # Enforcing strict Pydantic JSON schema format directly at the Groq API level
             response = self.client.chat.completions.create(
                 model=settings.MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.0,  # Dropped to 0 for maximum deterministic consistency
+                temperature=0.0,  
                 response_format={
                     "type": "json_object",
-                    "schema": ActionSchema.model_json_schema() # Forces the model to adhere to the schema keys
+                    "schema": ActionSchema.model_json_schema()
                 }
             )
             
