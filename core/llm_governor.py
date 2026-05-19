@@ -22,15 +22,23 @@ class LlmGovernor:
         [TASK] Optimize parameters based on operational metrics. Prioritize thermal safety while mitigating power drag.
         [CURRENT TELEMETRY] {json.dumps(telemetry)}
         
-        Return a strict JSON output matching the target schema configuration parameters. Do not include markdown wraps or conversational fluff.
+        CRITICAL: You MUST respond with a JSON object that contains exactly these keys and no others:
+        - pump_pressure_psi
+        - coolant_flow_lpm
+        - valve_actuation_pct
+        - justification
         """
         
         try:
+            # Enforcing strict Pydantic JSON schema format directly at the Groq API level
             response = self.client.chat.completions.create(
                 model=settings.MODEL_NAME,
                 messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                response_format={"type": "json_object"}
+                temperature=0.0,  # Dropped to 0 for maximum deterministic consistency
+                response_format={
+                    "type": "json_object",
+                    "schema": ActionSchema.model_json_schema() # Forces the model to adhere to the schema keys
+                }
             )
             
             raw_output = json.loads(response.choices[0].message.content)
@@ -42,7 +50,7 @@ class LlmGovernor:
                 "pump_pressure_psi": 30.0,
                 "coolant_flow_lpm": 15.0,
                 "valve_actuation_pct": 50.0,
-                "justification": f"FAILSAFE INITIATED: API Error Code {str(e)}"
+                "justification": f"FAILSAFE INITIATED: Schema Validation/API Error: {str(e)}"
             }
 
 def import_streamlit_secrets():
