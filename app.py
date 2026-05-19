@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import time
+from config.settings import settings
 from core.llm_governor import LlmGovernor
 from core.safety_matrix import ActuationSafetyMatrix
 from telemetry.mock_sensors import RealTimeTelemetryEngine
@@ -35,7 +36,7 @@ if "governor" not in st.session_state:
 
 # Main Terminal Header Banner
 st.title("⚡ NEXUS-FLOW // SOVEREIGN ENGINE GOVERNOR")
-st.caption("PRODUCTION INDUSTRIAL AUTOMATION WORKLOAD PLATFORM // ACTIVE MONITORING MODE")
+st.caption(f"PRODUCTION AUTOMATION WORKLOAD PLATFORM // ACTIVE MODEL: {settings.MODEL_NAME.upper()}")
 st.markdown("---")
 
 # Execution Pipeline Loop Processing
@@ -70,7 +71,7 @@ if override_triggered:
 else:
     st.markdown(f"""<div class='nominal-box'><strong>🟢 ACTUATION STATE NOMINAL:</strong> Autonomous system parameters completely authenticated via safety matrix validation.</div>""", unsafe_allow_html=True)
 
-st.info(f"**Llama-3.3 Autonomous Strategy Justification:** {sanitized_strategy['justification']}")
+st.info(f"**Autonomous Strategy Justification:** {sanitized_strategy['justification']}")
 
 # Real-Time Telemetry Matrix Ledger
 df = pd.DataFrame(st.session_state.history)
