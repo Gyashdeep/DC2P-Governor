@@ -19,13 +19,18 @@ st.markdown("""
     .override-box { background-color: #2A080C; border: 1px solid #FF3344; padding: 15px; border-radius: 4px; color: #FF3344; margin-bottom: 20px; }
     .nominal-box { background-color: #051A10; border: 1px solid #00FF66; padding: 15px; border-radius: 4px; color: #00FF66; margin-bottom: 20px; }
     </style>
-""", unsafe_allowed_markup=True)
+""", unsafe_allow_html=True)
 
 # State Management Initialization
 if "governor" not in st.session_state:
     st.session_state.governor = LlmGovernor()
     st.session_state.sensors = RealTimeTelemetryEngine()
-    st.session_state.current_actuation = {"pump_pressure_psi": 30.0, "coolant_flow_lpm": 15.0, "valve_actuation_pct": 50.0, "justification": "System boot initialization completed."}
+    st.session_state.current_actuation = {
+        "pump_pressure_psi": 30.0, 
+        "coolant_flow_lpm": 15.0, 
+        "valve_actuation_pct": 50.0, 
+        "justification": "System boot initialization completed."
+    }
     st.session_state.history = []
 
 # Main Terminal Header Banner
@@ -43,7 +48,8 @@ sanitized_strategy, override_triggered = ActuationSafetyMatrix.verify_action(
 # Commit Current Cycle Values Back to State Logs
 st.session_state.current_actuation = sanitized_strategy
 st.session_state.history.append({**telemetry_data, **sanitized_strategy})
-if len(st.session_state.history) > 30: st.session_state.history.pop(0)
+if len(st.session_state.history) > 30: 
+    st.session_state.history.pop(0)
 
 # Multi-Column High Density Telemetry Layout Metrics
 col1, col2, col3, col4 = st.columns(4)
@@ -60,9 +66,9 @@ st.markdown("### SYSTEM REASONING & ACTUATION LOGS")
 
 # Dynamic Firewall Visual Indicators Banner
 if override_triggered:
-    st.markdown(f"""<div class='override-box'><strong>⚠️ AIR-GAP CRITICAL INTERVENTION DETECTED:</strong> Low-level physics engine overrode autonomous commands to prevent physical system degradation.</div>""", unsafe_allowed_markup=True)
+    st.markdown(f"""<div class='override-box'><strong>⚠️ AIR-GAP CRITICAL INTERVENTION DETECTED:</strong> Low-level physics engine overrode autonomous commands to prevent physical system degradation.</div>""", unsafe_allow_html=True)
 else:
-    st.markdown(f"""<div class='nominal-box'><strong>🟢 ACTUATION STATE NOMINAL:</strong> Autonomous system parameters completely authenticated via safety matrix validation.</div>""", unsafe_allowed_markup=True)
+    st.markdown(f"""<div class='nominal-box'><strong>🟢 ACTUATION STATE NOMINAL:</strong> Autonomous system parameters completely authenticated via safety matrix validation.</div>""", unsafe_allow_html=True)
 
 st.info(f"**Llama-3.3 Autonomous Strategy Justification:** {sanitized_strategy['justification']}")
 
