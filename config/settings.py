@@ -8,8 +8,11 @@ class SystemSettings(BaseSettings):
     MAX_PUMP_PRESSURE_PSI: float = 60.0
     
     # API Configurations
-    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "mock_key_if_testing")
-    MODEL_NAME: str = "llama-3.3-70b-specdec"
+    GROQ_API_KEY: str = os.getenv("GROQ_API_KEY", "")
+    
+    # High-Performance Production Models Target Matrix
+    # Options: "openai/gpt-oss-120b" (Deep Reasoning) or "meta-llama/llama-4-scout-17b-16e-instruct" (Next-Gen Native)
+    MODEL_NAME: str = "openai/gpt-oss-120b" 
 
     class Config:
         env_file = ".env"
