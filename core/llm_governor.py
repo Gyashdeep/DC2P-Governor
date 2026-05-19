@@ -11,9 +11,8 @@ class ActionSchema(BaseModel):
     justification: str = Field(description="Engineering rationale behind the asset adjustment strategy.")
 
 class LlmGovernor:
-    """Autonomous AI governor managing optimization calculations via Groq."""
+    """Autonomous AI governor managing optimization calculations via Groq Cloud."""
     def __init__(self):
-        # Fallback to streamlit secrets if local env variable is missing
         api_key = settings.GROQ_API_KEY if settings.GROQ_API_KEY else import_streamlit_secrets()
         self.client = Groq(api_key=api_key)
 
